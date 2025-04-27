@@ -1,0 +1,273 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Definición de modelos basados en el diseño de la base de datos
+
+model Usuario {
+  id                String              @id @default(uuid()) @db.Uuid
+  nombre            String
+  email             String              @unique
+  password_hash     String
+  rol_id            String
+  rango             String?
+  fecha_creacion    DateTime            @default(now())
+  
+  rol               Rol                 @relation(fields: [rol_id], references: [id])
+  progreso_usuario  ProgresoUsuario[]
+  suscripciones     SuscripcionUsuario[]
+  publicaciones     Publicacion[]
+  comentarios       Comentario[]
+  likes             LikePublicacion[]
+
+  @@map("usuario")
+}
+
+model Rol {
+  id               String        @id
+  nombre           String
+  descripcion      String?
+  
+  usuarios         Usuario[]
+  rol_permisos     RolPermiso[]
+
+  @@map("rol")
+}
+
+model Permiso {
+  id               String        @id
+  nombre           String
+  descripcion      String?
+  
+  rol_permisos     RolPermiso[]
+
+  @@map("permiso")
+}
+
+model RolPermiso {
+  rol_id           String
+  permiso_id       String
+  
+  rol              Rol           @relation(fields: [rol_id], references: [id])
+  permiso          Permiso       @relation(fields: [permiso_id], references: [id])
+
+  @@id([rol_id, permiso_id])
+  @@map("rol_permiso")
+}
+
+model PlanSuscripcion {
+  id               String        @id
+  nombre           String
+  precio           Decimal
+  intervalo_pago   String
+  descripcion      String?
+  activo           Boolean       @default(true)
+  
+  suscripciones    SuscripcionUsuario[]
+  caracteristicas  PlanCaracteristica[]
+
+  @@map("plan_suscripcion")
+}
+
+model Caracteristica {
+  id               String        @id
+  nombre           String        @unique
+  descripcion      String?
+  
+  planes           PlanCaracteristica[]
+
+  @@map("caracteristica")
+}
+
+model PlanCaracteristica {
+  plan_id          String
+  caracteristica_id String
+  valor            String?
+  
+  plan             PlanSuscripcion @relation(fields: [plan_id], references: [id])
+  caracteristica   Caracteristica  @relation(fields: [caracteristica_id], references: [id])
+
+  @@id([plan_id, caracteristica_id])
+  @@map("plan_caracteristica")
+}
+
+model SuscripcionUsuario {
+  id                  String      @id @default(uuid()) @db.Uuid
+  usuario_id          String      @db.Uuid
+  plan_id             String
+  fecha_inicio        DateTime    @default(now())
+  fecha_fin           DateTime?
+  estado              String
+  id_transaccion_pago String?
+  
+  usuario             Usuario     @relation(fields: [usuario_id], references: [id])
+  plan                PlanSuscripcion @relation(fields: [plan_id], references: [id])
+
+  @@map("suscripcion_usuario")
+}
+
+model Curso {
+  id                 String       @id
+  titulo             String
+  descripcion        String?
+  url_imagen         String?
+  dificultad         String
+  es_nuevo           Boolean      @default(false)
+  fecha_publicacion  DateTime     @default(now())
+  
+  categorias         CursoCategoria[]
+  modulos            Modulo[]
+
+  @@map("curso")
+}
+
+model CategoriaCurso {
+  id                 String       @id
+  nombre             String       @unique
+  descripcion        String?
+  
+  cursos             CursoCategoria[]
+
+  @@map("categoria_curso")
+}
+
+model CursoCategoria {
+  curso_id           String
+  categoria_id       String
+  
+  curso              Curso        @relation(fields: [curso_id], references: [id])
+  categoria          CategoriaCurso @relation(fields: [categoria_id], references: [id])
+
+  @@id([curso_id, categoria_id])
+  @@map("curso_categoria")
+}
+
+model Modulo {
+  id                 String       @id @default(uuid()) @db.Uuid
+  curso_id           String
+  titulo             String
+  descripcion        String?
+  orden              Int
+  
+  curso              Curso        @relation(fields: [curso_id], references: [id])
+  ejercicios         Ejercicio[]
+
+  @@map("modulo")
+}
+
+model Ejercicio {
+  id                 String       @id
+  modulo_id          String       @db.Uuid
+  numero             Int
+  titulo             String
+  descripcion        String?
+  instrucciones      String?
+  salida_esperada    String?
+  codigo_inicial     String?
+  test_cases_json    Json?
+  
+  modulo             Modulo       @relation(fields: [modulo_id], references: [id])
+  progreso           ProgresoUsuario[]
+
+  @@map("ejercicio")
+}
+
+model ProgresoUsuario {
+  id                   String     @id @default(uuid()) @db.Uuid
+  usuario_id           String     @db.Uuid
+  ejercicio_id         String
+  completado           Boolean    @default(false)
+  intentos             Int        @default(0)
+  puntos_obtenidos     Int        @default(0)
+  ultima_actualizacion DateTime   @default(now())
+  
+  usuario              Usuario    @relation(fields: [usuario_id], references: [id])
+  ejercicio            Ejercicio  @relation(fields: [ejercicio_id], references: [id])
+
+  @@unique([usuario_id, ejercicio_id])
+  @@map("progreso_usuario")
+}
+
+model Canal {
+  id                String        @id
+  nombre            String        @unique
+  descripcion       String?
+  
+  publicaciones     Publicacion[]
+
+  @@map("canal")
+}
+
+model Publicacion {
+  id               String        @id @default(uuid()) @db.Uuid
+  usuario_id       String        @db.Uuid
+  canal_id         String
+  contenido        String
+  url_imagen       String?
+  fecha_creacion   DateTime      @default(now())
+  
+  usuario          Usuario       @relation(fields: [usuario_id], references: [id])
+  canal            Canal         @relation(fields: [canal_id], references: [id])
+  comentarios      Comentario[]
+  likes            LikePublicacion[]
+
+  @@map("publicacion")
+}
+
+model Comentario {
+  id                 String       @id @default(uuid()) @db.Uuid
+  publicacion_id     String       @db.Uuid
+  usuario_id         String       @db.Uuid
+  contenido          String
+  fecha_creacion     DateTime     @default(now())
+  comentario_padre_id String?     @db.Uuid
+  
+  publicacion        Publicacion  @relation(fields: [publicacion_id], references: [id])
+  usuario            Usuario      @relation(fields: [usuario_id], references: [id])
+  comentario_padre   Comentario?  @relation("ComentariosRespuestas", fields: [comentario_padre_id], references: [id])
+  respuestas         Comentario[] @relation("ComentariosRespuestas")
+
+  @@map("comentario")
+}
+
+model LikePublicacion {
+  usuario_id        String       @db.Uuid
+  publicacion_id    String       @db.Uuid
+  fecha_creacion    DateTime     @default(now())
+  
+  usuario           Usuario      @relation(fields: [usuario_id], references: [id])
+  publicacion       Publicacion  @relation(fields: [publicacion_id], references: [id])
+
+  @@id([usuario_id, publicacion_id])
+  @@map("like_publicacion")
+}
+
+// Modelos faltantes mencionados en el diseño original pero sin detalle completo
+model Evento {
+  id               String        @id @default(uuid()) @db.Uuid
+  titulo           String
+  descripcion      String?
+  fecha            DateTime
+  url_enlace       String?
+
+  @@map("evento")
+}
+
+model Noticia {
+  id               String        @id @default(uuid()) @db.Uuid
+  titulo           String
+  contenido        String
+  resumen          String?
+  tipo             String        // Blog, Video, etc.
+  fecha_publicacion DateTime     @default(now())
+
+  @@map("noticia")
+}
